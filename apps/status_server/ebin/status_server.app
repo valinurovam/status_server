@@ -1,0 +1,10 @@
+{application,status_server,
+             [{description,"HTTP Status Server"},
+              {vsn,"0.1.1"},
+              {modules,[status_server,status_server_app,
+                        status_server_supervisor]},
+              {registered,[status_server,status_server_supervisor]},
+              {applications,[kernel,stdlib,sasl,inets,ssl,crypto,public_key,
+                             emysql,compiler,syntax_tools,lager]},
+              {mod,{status_server_app,[]}},
+              {start_phases,[]}]}.
