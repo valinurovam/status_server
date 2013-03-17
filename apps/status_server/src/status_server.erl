@@ -230,8 +230,8 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 
-%% Функция получает все записи, готовые к отправке
-%% Записи возвращаются в виде списка
+%% Р¤СѓРЅРєС†РёСЏ РїРѕР»СѓС‡Р°РµС‚ РІСЃРµ Р·Р°РїРёСЃРё, РіРѕС‚РѕРІС‹Рµ Рє РѕС‚РїСЂР°РІРєРµ
+%% Р—Р°РїРёСЃРё РІРѕР·РІСЂР°С‰Р°СЋС‚СЃСЏ РІ РІРёРґРµ СЃРїРёСЃРєР°
 get_status_records() ->
 	try
 		Result = emysql:execute(?DB, 
@@ -245,8 +245,8 @@ get_status_records() ->
 	end.
 
 
-%% Вставляет все записи, готовые к отправке, в 
-%% общую таблицу, которая используется всем сервером.
+%% Р’СЃС‚Р°РІР»СЏРµС‚ РІСЃРµ Р·Р°РїРёСЃРё, РіРѕС‚РѕРІС‹Рµ Рє РѕС‚РїСЂР°РІРєРµ, РІ 
+%% РѕР±С‰СѓСЋ С‚Р°Р±Р»РёС†Сѓ, РєРѕС‚РѕСЂР°СЏ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РІСЃРµРј СЃРµСЂРІРµСЂРѕРј.
 insert_status_recors([]) -> 0;
 insert_status_recors([Status|StatusList]) ->
 	insert_status_records([Status|StatusList], 0).
@@ -262,7 +262,7 @@ insert_status_records(_StatusList, InsertCount) when InsertCount >= 100 -> Inser
 insert_status_records([], InsertCount) -> InsertCount.
 		
 
-%% Возвращает количество не обработанных записей.
+%% Р’РѕР·РІСЂР°С‰Р°РµС‚ РєРѕР»РёС‡РµСЃС‚РІРѕ РЅРµ РѕР±СЂР°Р±РѕС‚Р°РЅРЅС‹С… Р·Р°РїРёСЃРµР№.
 status_count_to_send() ->
 	case ets:info(?STATUS_TABLE) of
 		undefined ->
@@ -276,16 +276,20 @@ process_status(#status_record{id = Id, url = HttpUrl} = Status) ->
 	case httpc:request(HttpURL) of
 		{ok, {{_Version, HttpStatus, ReasonPhrase}, _Headers, _Body}} ->
 			case HttpStatus of
-				200 ->
-					%% удаляем сообщение
-					IdStr = erlang:integer_to_list(Id),
-					emysql:execute(?DB, "delete from partner_out_message_dlr where id = " ++ IdStr),
-					
-					%% отмечаем для удаления из ETS
+				200 ->					
+					%% РѕС‚РјРµС‡Р°РµРј РґР»СЏ СѓРґР°Р»РµРЅРёСЏ РёР· ETS
 					ets:insert(?STATUS_TABLE, {Id, {Status, -1}}),
+					%% СѓРґР°Р»СЏРµРј СЃРѕРѕР±С‰РµРЅРёРµ РёР· Р‘Р”
+					IdStr = erlang:integer_to_list(Id),
+					try
+						emysql:execute(?DB, "delete from partner_out_message_dlr where id = " ++ IdStr)
+					catch 
+						Error:Reason ->
+							lager:error("Error on delete id = ~p from DB. Error: ~p Reason: ~p~n", [Id, Error, Reason])
+					end,
 					lager:info("~p ~p ~p~n", [HttpURL, HttpStatus, ReasonPhrase]);
 				_OtherStatus ->
-					%% отмечаем для повторной отработки
+					%% РѕС‚РјРµС‡Р°РµРј РґР»СЏ РїРѕРІС‚РѕСЂРЅРѕР№ РѕС‚СЂР°Р±РѕС‚РєРё
 					ets:insert(?STATUS_TABLE, {Id, {Status, 0}}),
 					lager:notice("~p ~p ~p~n", [HttpURL, HttpStatus, ReasonPhrase])
 			end;
